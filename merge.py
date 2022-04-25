@@ -1,3 +1,5 @@
+import os
+
 from PySide2.QtCore import QThread
 from PySide2.QtWidgets import QListWidget
 from signals import SignalInt, SignalStr
@@ -15,9 +17,6 @@ class Merge(QThread):
         self.onFinished = SignalStr()
         self.onReadExcelFile = SignalInt()
         self.oi = 0
-        pythoncom.CoInitialize()
-        xl = win32.Dispatch('Excel.Application')
-        self.xl_id = pythoncom.CoMarshalInterThreadInterfaceInStream(pythoncom.IID_IDispatch, xl)
 
     def setOnReadExcelFile(self, func):
         self.onReadExcelFile.sig.connect(func)
@@ -44,10 +43,16 @@ class Merge(QThread):
         for i in range(1, self.qlw.count()):
             self.readFile(worksheet, self.qlw.item(i).text(), 1)
             self.onReadExcelFile.sig.emit(i * 100 / self.qlw.count())
+        worksheet.right_to_left()
         workbook.close()
-        xl = win32.Dispatch(pythoncom.CoGetInterfaceAndReleaseStream(self.xl_id, pythoncom.IID_IDispatch))
+        pythoncom.CoInitialize()
+        xll = win32.Dispatch('Excel.Application')
+        xl_id = pythoncom.CoMarshalInterThreadInterfaceInStream(pythoncom.IID_IDispatch, xll)
+        xl = win32.Dispatch(pythoncom.CoGetInterfaceAndReleaseStream(xl_id, pythoncom.IID_IDispatch))
         wb = xl.Workbooks.Open(self.output)
         for ws in wb.Sheets:
             ws.Columns.AutoFit()
         wb.Save()
+        wb.Close()
+        pythoncom.CoUninitialize()
         self.onFinished.sig.emit(self.output)
